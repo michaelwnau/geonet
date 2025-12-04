@@ -1,0 +1,5 @@
+{
+  "name": "NetRunner Geo-Surveillance",
+  "description": "A cyberpunk-styled terminal interface visualizing team locations with real-time AI-generated surveillance logs.",
+  "requestFramePermissions": []
+}
