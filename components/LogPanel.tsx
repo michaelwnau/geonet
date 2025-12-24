@@ -17,10 +17,9 @@ export const LogPanel: React.FC<LogPanelProps> = ({ logs }) => {
       {logs.map((log, i) => (
         <div key={i} className="flex">
           <span className="text-[#005f63] mr-2">[{log.timestamp}]</span>
-          <span className={`${
-            log.level === 'CRIT' ? 'text-red-500' : 
-            log.level === 'WARN' ? 'text-yellow-400' : 'text-[#00f3ff]'
-          } opacity-90`}>
+          <span className={`${log.level === 'CRIT' ? 'text-[#00f3ff]' :
+              log.level === 'WARN' ? 'text-[#00f3ff]' : 'text-[#00f3ff]'
+            } opacity-90`}>
             {'>'} {log.content}
           </span>
         </div>
