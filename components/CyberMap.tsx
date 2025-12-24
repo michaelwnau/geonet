@@ -1,21 +1,36 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import * as topojson from 'topojson-client';
-import { City, MapView } from '../types';
+import { City, MapView, SantaState } from '../types';
 import { CITIES } from '../constants';
 
 interface CyberMapProps {
   onCitySelect: (city: City) => void;
   selectedCity: City | null;
   viewMode: MapView;
+  santaState: SantaState | null;
 }
 
-export const CyberMap: React.FC<CyberMapProps> = ({ onCitySelect, selectedCity, viewMode }) => {
+export const CyberMap: React.FC<CyberMapProps> = ({ onCitySelect, selectedCity, viewMode, santaState }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [geoData, setGeoData] = useState<any>(null);
   const [worldData, setWorldData] = useState<any>(null);
   const rotationRef = useRef<any>(null); // For auto-rotation
+  const [trail, setTrail] = useState<{ lat: number, lng: number }[]>([]);
+
+  // Update trail when Santa moves
+  useEffect(() => {
+    if (santaState?.currentLocation) {
+      setTrail(prev => {
+        const last = prev[prev.length - 1];
+        if (!last || last.lat !== santaState.currentLocation.lat || last.lng !== santaState.currentLocation.lng) {
+          return [...prev.slice(-50), santaState.currentLocation]; // Keep last 50 points
+        }
+        return prev;
+      });
+    }
+  }, [santaState?.currentLocation]);
 
   useEffect(() => {
     Promise.all([
@@ -141,13 +156,26 @@ export const CyberMap: React.FC<CyberMapProps> = ({ onCitySelect, selectedCity, 
       }
     }
 
+    // Render Santa Trail
+    if (trail.length > 1) {
+      const lineGenerator = d3.line<{ lat: number, lng: number }>()
+        .x(d => projection([d.lng, d.lat])?.[0] || 0)
+        .y(d => projection([d.lng, d.lat])?.[1] || 0)
+        .curve(d3.curveBasis);
+
+      g.append("path")
+        .datum(trail)
+        .attr("fill", "none")
+        .attr("stroke", "#00f3ff")
+        .attr("stroke-width", 2)
+        .attr("stroke-dasharray", "4 4")
+        .attr("opacity", 0.4)
+        .attr("d", lineGenerator as any);
+    }
+
     // Draw Cities
     CITIES.forEach(city => {
-      // Only show US cities in US view, or all cities in World views (if we had international cities)
-      // For now, we only have US cities, so we'll show them if they are visible in the projection
       const coords = projection([city.lng, city.lat]);
-
-      // Check visibility for Globe (clip angle)
       let isVisible = true;
       if (isGlobe) {
         const center = projection.invert!([width / 2, height / 2]);
@@ -157,7 +185,6 @@ export const CyberMap: React.FC<CyberMapProps> = ({ onCitySelect, selectedCity, 
 
       if (coords && isVisible) {
         const isSelected = selectedCity?.id === city.id;
-
         const cityG = g.append("g")
           .datum(city)
           .attr("class", "city-marker-group")
@@ -168,7 +195,6 @@ export const CyberMap: React.FC<CyberMapProps> = ({ onCitySelect, selectedCity, 
             onCitySelect(city);
           });
 
-        // Pulsing Ring
         cityG.append("circle")
           .attr("r", isSelected ? 12 : 6)
           .attr("fill", "none")
@@ -188,18 +214,15 @@ export const CyberMap: React.FC<CyberMapProps> = ({ onCitySelect, selectedCity, 
           .attr("dur", "1.5s")
           .attr("repeatCount", "indefinite");
 
-        // Center Dot
         cityG.append("circle")
           .attr("r", 4.5)
           .attr("fill", "#00f3ff")
           .attr("stroke", "#050a0f")
           .attr("stroke-width", 1);
 
-        // Label (Simplified for Globe view to avoid clutter, or keep same)
         if (!isGlobe || isSelected) {
           const labelX = 12;
           const labelY = -12;
-
           cityG.append("line")
             .attr("x1", 4)
             .attr("y1", -4)
@@ -207,11 +230,10 @@ export const CyberMap: React.FC<CyberMapProps> = ({ onCitySelect, selectedCity, 
             .attr("y2", labelY)
             .attr("stroke", "#00f3ff")
             .attr("stroke-width", 1.5);
-
           cityG.append("text")
             .attr("x", labelX + 2)
             .attr("y", labelY)
-            .text(`${city.name}`) // Shortened for world view
+            .text(`${city.name}`)
             .attr("fill", "#00f3ff")
             .attr("stroke", "#050a0f")
             .attr("stroke-width", "3px")
@@ -226,16 +248,85 @@ export const CyberMap: React.FC<CyberMapProps> = ({ onCitySelect, selectedCity, 
       }
     });
 
+    // Draw Santa - ALWAYS add to group, handle visibility in render or locally
+    if (santaState) {
+      const santaG = g.append("g")
+        .attr("class", "santa-marker-group");
+
+      const updateSantaPos = () => {
+        const coords = projection([santaState.currentLocation.lng, santaState.currentLocation.lat]);
+        let isVisible = !!coords;
+        if (isGlobe && coords) {
+          const center = projection.invert!([width / 2, height / 2]);
+          const distance = d3.geoDistance(center!, [santaState.currentLocation.lng, santaState.currentLocation.lat]);
+          if (distance > Math.PI / 2) isVisible = false;
+        }
+        santaG.attr("display", isVisible ? "block" : "none")
+          .attr("transform", coords ? `translate(${coords[0]}, ${coords[1]})` : null);
+      };
+
+      updateSantaPos();
+
+      // Pulsing Ring (Cyan)
+      santaG.append("circle")
+        .attr("r", 15)
+        .attr("fill", "none")
+        .attr("stroke", "#00f3ff")
+        .attr("stroke-width", 3)
+        .attr("opacity", 1)
+        .append("animate")
+        .attr("attributeName", "r")
+        .attr("from", 15)
+        .attr("to", 35)
+        .attr("dur", "1s")
+        .attr("repeatCount", "indefinite");
+
+      santaG.select("circle").append("animate")
+        .attr("attributeName", "opacity")
+        .attr("values", "1;0")
+        .attr("dur", "1s")
+        .attr("repeatCount", "indefinite");
+
+      // Center Dot (Cyan)
+      santaG.append("circle")
+        .attr("r", 6)
+        .attr("fill", "#00f3ff")
+        .attr("stroke", "#050a0f")
+        .attr("stroke-width", 2);
+
+      // Santa Label
+      const labelX = 15;
+      const labelY = -15;
+      santaG.append("line")
+        .attr("x1", 6)
+        .attr("y1", -6)
+        .attr("x2", labelX)
+        .attr("y2", labelY)
+        .attr("stroke", "#00f3ff")
+        .attr("stroke-width", 2);
+
+      santaG.append("text")
+        .attr("x", labelX + 2)
+        .attr("y", labelY)
+        .text("SANTA-01")
+        .attr("fill", "#00f3ff")
+        .attr("stroke", "#050a0f")
+        .attr("stroke-width", "4px")
+        .attr("stroke-linejoin", "round")
+        .style("paint-order", "stroke")
+        .attr("font-size", "14px")
+        .attr("font-family", "'Share Tech Mono', monospace")
+        .attr("font-weight", "bold")
+        .style("text-transform", "uppercase");
+    }
+
     // Auto-rotation for Globe
     if (isGlobe) {
       if (rotationRef.current) d3.timer(rotationRef.current).stop();
-
       const initialScale = projection.scale();
 
-      // 1. Drag Behavior (Rotation)
       const drag = d3.drag<SVGSVGElement, unknown>()
         .on("start", () => {
-          // Stop auto-rotation on user interaction
           if (rotationRef.current) {
             rotationRef.current.stop();
             rotationRef.current = null;
@@ -243,14 +334,11 @@ export const CyberMap: React.FC<CyberMapProps> = ({ onCitySelect, selectedCity, 
         })
         .on("drag", (event) => {
           const rotate = projection.rotate();
-          const k = 0.25; // Sensitivity
+          const k = 0.25;
           projection.rotate([rotate[0] + event.dx * k, rotate[1] - event.dy * k]);
-
-          // Redraw
           render();
         });
 
-      // 2. Zoom Behavior (Scaling only)
       const globeZoom = d3.zoom<SVGSVGElement, unknown>()
         .scaleExtent([0.5, 4])
         .on("zoom", (event) => {
@@ -258,44 +346,47 @@ export const CyberMap: React.FC<CyberMapProps> = ({ onCitySelect, selectedCity, 
             rotationRef.current.stop();
             rotationRef.current = null;
           }
-
-          // Only update scale, ignore translation (x,y) to prevent snapping
           projection.scale(initialScale * event.transform.k);
-
           render();
         });
 
-      // Helper to render everything
       const render = () => {
-        g.selectAll("path").attr("d", path);
+        g.selectAll("path").attr("d", path as any);
         g.selectAll(".city-marker-group").each(function (d: any) {
           const c = projection([d.lng, d.lat]);
           const center = projection.invert!([width / 2, height / 2]);
           const dist = d3.geoDistance(center!, [d.lng, d.lat]);
           const visible = dist <= Math.PI / 2;
-
           d3.select(this)
             .attr("display", visible ? "block" : "none")
             .attr("transform", c ? `translate(${c[0]}, ${c[1]})` : null);
         });
+
+        g.selectAll(".santa-marker-group").each(function () {
+          if (!santaState) return;
+          const c = projection([santaState.currentLocation.lng, santaState.currentLocation.lat]);
+          const center = projection.invert!([width / 2, height / 2]);
+          const dist = d3.geoDistance(center!, [santaState.currentLocation.lng, santaState.currentLocation.lat]);
+          const visible = dist <= Math.PI / 2;
+          d3.select(this)
+            .attr("display", visible ? "block" : "none")
+            .attr("transform", c ? `translate(${c[0]}, ${c[1]})` : null);
+        });
+
         g.select(".graticule").attr("d", path);
         g.select("circle").attr("r", projection.scale());
       };
 
-      // Apply behaviors
-      // We apply zoom first, then unbind its mousedown so drag can take over
       svg.call(globeZoom)
-        .on("mousedown.zoom", null) // Disable zoom panning
+        .on("mousedown.zoom", null)
         .on("touchstart.zoom", null)
         .on("touchmove.zoom", null)
         .on("touchend.zoom", null);
 
       svg.call(drag);
 
-      // Auto-rotate
       const timer = d3.timer((elapsed) => {
         if (rotationRef.current === null) return;
-
         const rotate = projection.rotate();
         const k = 0.05;
         projection.rotate([rotate[0] + k, rotate[1]]);
@@ -307,37 +398,42 @@ export const CyberMap: React.FC<CyberMapProps> = ({ onCitySelect, selectedCity, 
       return () => {
         timer.stop();
         rotationRef.current = null;
-        // Cleanup listeners to prevent leaks or conflicts when switching views
         svg.on(".zoom", null);
         svg.on(".drag", null);
       };
     } else {
-      // Zoom Behavior for flat maps
       const zoom = d3.zoom<SVGSVGElement, unknown>()
         .scaleExtent([1, 8])
         .translateExtent([[0, 0], [width, height]])
         .on("zoom", (event) => {
           g.attr("transform", event.transform.toString());
           g.selectAll(".state-border, .country-border").attr("stroke-width", 1.5 / Math.sqrt(event.transform.k));
-          g.selectAll(".city-marker-group").attr("transform", function (d: any) {
-            const [x, y] = projection([d.lng, d.lat]) || [0, 0];
+          g.selectAll(".city-marker-group, .santa-marker-group").attr("transform", function (d: any) {
+            let lng, lat;
+            if (d && d.lng !== undefined) {
+              lng = d.lng;
+              lat = d.lat;
+            } else if (santaState) {
+              lng = santaState.currentLocation.lng;
+              lat = santaState.currentLocation.lat;
+            } else {
+              return null;
+            }
+            const [x, y] = projection([lng, lat]) || [0, 0];
             const scale = 1 / Math.pow(event.transform.k, 0.6);
             return `translate(${x}, ${y}) scale(${scale})`;
           });
         });
       svg.call(zoom);
     }
-
-  }, [geoData, worldData, selectedCity, viewMode]);
+  }, [geoData, worldData, selectedCity, viewMode, santaState, trail]);
 
   return (
     <div ref={containerRef} className="w-full h-full relative overflow-hidden cursor-move">
       <div className="absolute inset-0 bg-grid pointer-events-none"></div>
       <svg ref={svgRef} className="w-full h-full relative z-10"></svg>
-
       <div className="absolute top-1/2 left-1/2 w-full h-[1px] bg-[#005f63]/30 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20"></div>
       <div className="absolute top-1/2 left-1/2 h-full w-[1px] bg-[#005f63]/30 -translate-x-1/2 -translate-y-1/2 pointer-events-none z-20"></div>
-
       <div className="absolute bottom-2 right-2 text-[10px] text-[#00f3ff] pointer-events-none z-20">
         {viewMode === 'GLOBE' ? 'AUTO-ROTATION ACTIVE' : 'SCROLL TO ZOOM // DRAG TO PAN'}
       </div>
