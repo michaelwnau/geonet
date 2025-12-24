@@ -25,9 +25,9 @@ export const WorldClock: React.FC<WorldClockProps> = ({ timezoneOffset = 0, labe
     };
 
     return (
-        <div className="bg-[#050a0f]/90 p-2 border-l-2 border-[#00f3ff] min-w-[120px]">
-            <div className="text-[10px] text-[#005f63] uppercase tracking-tighter">{label} TIME</div>
-            <div className="text-xl font-bold leading-none tabular-nums text-[#00f3ff] glow-text">
+        <div className="bg-[#050a0f]/90 p-2 border-l-2 border-[#00f3ff] min-w-[100px] md:min-w-[120px]">
+            <div className="text-[8px] md:text-[10px] text-[#005f63] uppercase tracking-tighter">{label} TIME</div>
+            <div className="text-lg md:text-xl font-bold leading-none tabular-nums text-[#00f3ff] glow-text">
                 {formatTime(time, timezoneOffset)}
             </div>
             <div className="text-[8px] opacity-50 uppercase mt-1">

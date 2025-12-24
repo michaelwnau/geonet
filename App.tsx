@@ -76,55 +76,62 @@ const App: React.FC = () => {
   };
 
   return (
-    <div className="h-screen w-screen flex flex-col p-2 md:p-6 gap-4 bg-[#050a0f] text-[#00f3ff]">
-      <header className="flex justify-between items-end border-b border-[#005f63] pb-2 mb-2">
-        <div>
-          <h1 className="text-2xl md:text-4xl font-bold tracking-tighter glow-text">SANTA-Net<span className="text-xs align-top ml-1 opacity-70">v.XMAS</span></h1>
-          <p className="text-xs text-[#005f63]">SLEIGH PROGRESS SURVEILLANCE SYSTEM</p>
+    <div className="min-h-screen md:h-screen w-screen flex flex-col p-2 md:p-6 gap-4 bg-[#050a0f] text-[#00f3ff] overflow-x-hidden">
+      <header className="flex flex-col md:flex-row justify-between items-start md:items-end border-b border-[#005f63] pb-2 mb-2 gap-4">
+        <div className="flex flex-col">
+          <h1 className="text-2xl md:text-4xl font-bold tracking-tighter glow-text">
+            SANTA-Net<span className="text-xs align-top ml-1 opacity-70">v.XMAS</span>
+          </h1>
+          <p className="text-[10px] md:text-xs text-[#005f63]">SLEIGH PROGRESS SURVEILLANCE SYSTEM</p>
         </div>
-        <div className="flex gap-4 items-end">
-          {santaState && (
-            <WorldClock timezoneOffset={santaState.lastStop?.timezone || 0} label={santaState.lastStop?.city || 'SANTA'} />
-          )}
-          <div className="text-right hidden md:block border-l border-[#005f63] pl-4">
-            <div className="text-xs text-[#005f63]">SYS.STATUS: <span className="text-[#00f3ff]">OPERATIONAL</span></div>
-            <div className="text-xs text-[#005f63]">GPS: <span className="text-[#00f3ff]">LOCKED [SANTA-01]</span></div>
+        <div className="flex w-full md:w-auto justify-between md:justify-end items-end gap-4">
+          <div className="md:border-r md:border-[#005f63] md:pr-4">
+            {santaState && (
+              <WorldClock timezoneOffset={santaState.lastStop?.timezone || 0} label={santaState.lastStop?.city || 'SANTA'} />
+            )}
+          </div>
+          <div className="text-right border-l border-[#005f63] pl-4">
+            <div className="text-[10px] md:text-xs text-[#005f63]">SYS.STATUS: <span className="text-[#00f3ff]">OPERATIONAL</span></div>
+            <div className="text-[10px] md:text-xs text-[#005f63]">GPS: <span className="text-[#00f3ff]">LOCKED [SANTA-01]</span></div>
           </div>
         </div>
       </header>
 
-      <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-0">
+      <div className="flex-1 grid grid-cols-1 lg:grid-cols-4 gap-4 min-h-0 overflow-hidden md:overflow-visible">
         <div className="lg:col-span-3 flex flex-col gap-4 min-h-0">
-          <TerminalFrame className="flex-1 min-h-[400px]" title="GEOSPATIAL VIEW [SAT-KRI-NGLE]">
-            <div className="absolute top-4 right-4 z-30">
+          <TerminalFrame className="flex-1 min-h-[400px] md:min-h-0 relative flex flex-col" title="GEOSPATIAL VIEW [SAT-KRI-NGLE]">
+            <div className="relative md:absolute md:top-4 md:right-4 z-30 mb-2 md:mb-0">
               <MapNavigation currentView={currentView} onViewChange={setCurrentView} />
             </div>
-            <CyberMap
-              onCitySelect={handleCitySelect}
-              selectedCity={selectedCity}
-              viewMode={currentView}
-              santaState={santaState}
-            />
 
-            <div className="absolute top-4 left-4 pointer-events-none space-y-2">
-              <div className="bg-[#050a0f]/90 p-2 border-l-2 border-[#00f3ff]">
-                <div className="text-[10px] text-[#005f63] uppercase">Lat/Long (SANTA)</div>
-                <div className="text-lg leading-none text-[#00f3ff]">
-                  {santaState ? `${santaState.currentLocation.lat.toFixed(4)}, ${santaState.currentLocation.lng.toFixed(4)}` : '00.0000, 00.0000'}
+            <div className="flex-1 relative min-h-[400px] md:h-full">
+              <CyberMap
+                onCitySelect={handleCitySelect}
+                selectedCity={selectedCity}
+                viewMode={currentView}
+                santaState={santaState}
+              />
+
+              <div className="absolute top-2 left-2 md:top-4 md:left-4 pointer-events-none space-y-2">
+                <div className="bg-[#050a0f]/90 p-1 md:p-2 border-l-2 border-[#00f3ff]">
+                  <div className="text-[8px] md:text-[10px] text-[#005f63] uppercase">Lat/Long (SANTA)</div>
+                  <div className="text-sm md:text-lg leading-none text-[#00f3ff]">
+                    {santaState ? `${santaState.currentLocation.lat.toFixed(4)}, ${santaState.currentLocation.lng.toFixed(4)}` : '00.0000, 00.0000'}
+                  </div>
+                </div>
+                <div className="bg-[#050a0f]/90 p-1 md:p-2 border-l-2 border-[#00f3ff]">
+                  <div className="text-[8px] md:text-[10px] text-[#005f63] uppercase">Presents Delivered</div>
+                  <div className="text-md md:text-xl font-bold leading-none text-[#00f3ff] tabular-nums">
+                    {santaState ? santaState.presentsDelivered.toLocaleString() : '0'}
+                  </div>
                 </div>
               </div>
-              <div className="bg-[#050a0f]/90 p-2 border-l-2 border-[#00f3ff]">
-                <div className="text-[10px] text-[#005f63] uppercase">Presents Delivered</div>
-                <div className="text-xl font-bold leading-none text-[#00f3ff] tabular-nums">
-                  {santaState ? santaState.presentsDelivered.toLocaleString() : '0'}
-                </div>
-              </div>
-            </div>
 
-            <div className="absolute bottom-4 left-4 pointer-events-none">
-              <div className="text-[10px] text-[#00f3ff]">CHIMNEY DETECTION PROTOCOL</div>
-              <div className="h-1 w-32 bg-[#005f63]/30 mt-1 overflow-hidden">
-                <div className="h-full bg-[#00f3ff] animate-[shimmer_2s_infinite]"></div>
+              <div className="absolute bottom-2 left-2 md:bottom-4 md:left-4 pointer-events-none">
+                <div className="text-[8px] md:text-[10px] text-[#00f3ff]">CHIMNEY DETECTION PROTOCOL</div>
+                <div className="h-1 w-24 md:w-32 bg-[#005f63]/30 mt-1 overflow-hidden">
+                  <div className="h-full bg-[#00f3ff] animate-[shimmer_2s_infinite]"></div>
+                </div>
               </div>
             </div>
           </TerminalFrame>
@@ -170,9 +177,9 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      <footer className="text-[10px] text-[#005f63] flex justify-between border-t border-[#005f63]/30 pt-2">
+      <footer className="text-[8px] md:text-[10px] text-[#005f63] flex flex-col md:flex-row justify-between border-t border-[#005f63]/30 pt-2 gap-2">
         <div>© NORTH POLE SURVEILLANCE DIVISION. ALL RIGHTS RESERVED.</div>
-        <div>ZCORE GROUP TECH // NAUGHTY LIST ACCESS GRANTED</div>
+        <div className="md:text-right">ZCORE GROUP TECH // NAUGHTY LIST ACCESS GRANTED</div>
       </footer>
 
       <style>{`
