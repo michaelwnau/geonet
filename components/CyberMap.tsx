@@ -1,36 +1,21 @@
 import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
 import * as topojson from 'topojson-client';
-import { City, MapView, SantaState } from '../types';
+import { City, MapView } from '../types';
 import { CITIES } from '../constants';
 
 interface CyberMapProps {
   onCitySelect: (city: City) => void;
   selectedCity: City | null;
   viewMode: MapView;
-  santaState: SantaState | null;
 }
 
-export const CyberMap: React.FC<CyberMapProps> = ({ onCitySelect, selectedCity, viewMode, santaState }) => {
+export const CyberMap: React.FC<CyberMapProps> = ({ onCitySelect, selectedCity, viewMode }) => {
   const svgRef = useRef<SVGSVGElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const [geoData, setGeoData] = useState<any>(null);
   const [worldData, setWorldData] = useState<any>(null);
   const rotationRef = useRef<any>(null); // For auto-rotation
-  const [trail, setTrail] = useState<{ lat: number, lng: number }[]>([]);
-
-  // Update trail when Santa moves
-  useEffect(() => {
-    if (santaState?.currentLocation) {
-      setTrail(prev => {
-        const last = prev[prev.length - 1];
-        if (!last || last.lat !== santaState.currentLocation.lat || last.lng !== santaState.currentLocation.lng) {
-          return [...prev.slice(-50), santaState.currentLocation]; // Keep last 50 points
-        }
-        return prev;
-      });
-    }
-  }, [santaState?.currentLocation]);
 
   useEffect(() => {
     Promise.all([
@@ -156,22 +141,6 @@ export const CyberMap: React.FC<CyberMapProps> = ({ onCitySelect, selectedCity, 
       }
     }
 
-    // Render Santa Trail
-    if (trail.length > 1) {
-      const lineGenerator = d3.line<{ lat: number, lng: number }>()
-        .x(d => projection([d.lng, d.lat])?.[0] || 0)
-        .y(d => projection([d.lng, d.lat])?.[1] || 0)
-        .curve(d3.curveBasis);
-
-      g.append("path")
-        .datum(trail)
-        .attr("fill", "none")
-        .attr("stroke", "#00f3ff")
-        .attr("stroke-width", 2)
-        .attr("stroke-dasharray", "4 4")
-        .attr("opacity", 0.4)
-        .attr("d", lineGenerator as any);
-    }
 
     // Draw Cities
     CITIES.forEach(city => {
@@ -248,77 +217,6 @@ export const CyberMap: React.FC<CyberMapProps> = ({ onCitySelect, selectedCity, 
       }
     });
 
-    // Draw Santa - ALWAYS add to group, handle visibility in render or locally
-    if (santaState) {
-      const santaG = g.append("g")
-        .attr("class", "santa-marker-group");
-
-      const updateSantaPos = () => {
-        const coords = projection([santaState.currentLocation.lng, santaState.currentLocation.lat]);
-        let isVisible = !!coords;
-        if (isGlobe && coords) {
-          const center = projection.invert!([width / 2, height / 2]);
-          const distance = d3.geoDistance(center!, [santaState.currentLocation.lng, santaState.currentLocation.lat]);
-          if (distance > Math.PI / 2) isVisible = false;
-        }
-        santaG.attr("display", isVisible ? "block" : "none")
-          .attr("transform", coords ? `translate(${coords[0]}, ${coords[1]})` : null);
-      };
-
-      updateSantaPos();
-
-      // Pulsing Ring (Cyan)
-      santaG.append("circle")
-        .attr("r", 15)
-        .attr("fill", "none")
-        .attr("stroke", "#00f3ff")
-        .attr("stroke-width", 3)
-        .attr("opacity", 1)
-        .append("animate")
-        .attr("attributeName", "r")
-        .attr("from", 15)
-        .attr("to", 35)
-        .attr("dur", "1s")
-        .attr("repeatCount", "indefinite");
-
-      santaG.select("circle").append("animate")
-        .attr("attributeName", "opacity")
-        .attr("values", "1;0")
-        .attr("dur", "1s")
-        .attr("repeatCount", "indefinite");
-
-      // Center Dot (Cyan)
-      santaG.append("circle")
-        .attr("r", 6)
-        .attr("fill", "#00f3ff")
-        .attr("stroke", "#050a0f")
-        .attr("stroke-width", 2);
-
-      // Santa Label
-      const labelX = 15;
-      const labelY = -15;
-      santaG.append("line")
-        .attr("x1", 6)
-        .attr("y1", -6)
-        .attr("x2", labelX)
-        .attr("y2", labelY)
-        .attr("stroke", "#00f3ff")
-        .attr("stroke-width", 2);
-
-      santaG.append("text")
-        .attr("x", labelX + 2)
-        .attr("y", labelY)
-        .text("SANTA-01")
-        .attr("fill", "#00f3ff")
-        .attr("stroke", "#050a0f")
-        .attr("stroke-width", "4px")
-        .attr("stroke-linejoin", "round")
-        .style("paint-order", "stroke")
-        .attr("font-size", "14px")
-        .attr("font-family", "'Share Tech Mono', monospace")
-        .attr("font-weight", "bold")
-        .style("text-transform", "uppercase");
-    }
 
     // Auto-rotation for Globe
     if (isGlobe) {
@@ -362,16 +260,6 @@ export const CyberMap: React.FC<CyberMapProps> = ({ onCitySelect, selectedCity, 
             .attr("transform", c ? `translate(${c[0]}, ${c[1]})` : null);
         });
 
-        g.selectAll(".santa-marker-group").each(function () {
-          if (!santaState) return;
-          const c = projection([santaState.currentLocation.lng, santaState.currentLocation.lat]);
-          const center = projection.invert!([width / 2, height / 2]);
-          const dist = d3.geoDistance(center!, [santaState.currentLocation.lng, santaState.currentLocation.lat]);
-          const visible = dist <= Math.PI / 2;
-          d3.select(this)
-            .attr("display", visible ? "block" : "none")
-            .attr("transform", c ? `translate(${c[0]}, ${c[1]})` : null);
-        });
 
         g.select(".graticule").attr("d", path);
         g.select("circle").attr("r", projection.scale());
@@ -426,7 +314,7 @@ export const CyberMap: React.FC<CyberMapProps> = ({ onCitySelect, selectedCity, 
         });
       svg.call(zoom);
     }
-  }, [geoData, worldData, selectedCity, viewMode, santaState, trail]);
+  }, [geoData, worldData, selectedCity, viewMode]);
 
   return (
     <div ref={containerRef} className="w-full h-full relative overflow-hidden cursor-move">
